@@ -30,6 +30,8 @@ end
 
 -- make sure permissions are set correctly
 local file, err = io.open("/etc/nginx/conf.d/server_name.conf", "w")
+-- local file, err = io.open("/tmp/server_name.conf", "w")
+
 if file==nil then
     ngx.log(ngx.ERR, "Failed to open file: ", err)
     ngx.exit(ngx.HTTP_INTERNAL_SERVER_ERROR)
@@ -40,12 +42,9 @@ else
     file:close()
 end
 
--- close file
-file:close()
-
 -- return 200
 ngx.status = ngx.HTTP_OK
 ngx.say("OK")
 
 -- reload nginx
-os.execute("nginx -s reload")
+os.execute("/usr/local/openresty/nginx/sbin/nginx -s reload")
