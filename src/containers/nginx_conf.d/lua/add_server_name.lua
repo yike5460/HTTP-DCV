@@ -3,24 +3,46 @@
 -- parse request header
 local host = ngx.var.host
 local uri = ngx.var.uri
-local args = ngx.req.get_uri_args()
+
+-- leave here for future support of url args
+-- local args = ngx.req.get_uri_args()
+
+-- leave here for future support of url headers
+-- local h = ngx.resp.get_headers()
+-- for k, v in pairs(h) do
+--     ngx.say(k, " : ", v)
+-- end
 
 -- set log location
-local log_file = "/var/log/nginx/access.log"
-
--- set log level
--- local log_level = ngx.INFO
-
--- loggin requests
-local h = ngx.resp.get_headers()
-for k, v in pairs(h) do
-  ngx.log(ngx.DEBUG, 'Header name: ', k, " Value: ", v)
-end
+-- local log_file = "/var/log/nginx/access.log"
 
 -- get server name
 local server_name = host
-if args["server_name"] ~= nil then
-    server_name = args["server_name"]
+
+
+-- get request body
+ngx.req.read_body()
+-- max_args = 10
+local args, err = ngx.req.get_post_args(10)
+if args then
+    for k, v in pairs(args) do
+        if k == "server_name" then
+            -- set server name
+            server_name = v
+        end
+    end
+else
+    local file = ngx.req.get_body_file()
+    if file then
+        local fh, err = io.open(file, "r")
+        if fh then
+            local data = fh:read("*a")
+            fh:close()
+            ngx.say("request is in tmp file, data:", data)
+        end
+    else
+        ngx.say("no body found")
+    end
 end
 
 -- append server name to server_name.conf
