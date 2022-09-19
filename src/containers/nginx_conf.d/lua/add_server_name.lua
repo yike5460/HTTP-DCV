@@ -1,5 +1,8 @@
 -- Dynamiclly add server name to nginx.conf
 
+local CERTBOT_PRODUCTION_URL = "https://acme-v02.api.letsencrypt.org/directory"
+local CERTBOT_STAGING_URL = "https://acme-staging-v02.api.letsencrypt.org/directory"
+
 -- parse request header
 local host = ngx.var.host
 local uri = ngx.var.uri
@@ -16,9 +19,9 @@ local uri = ngx.var.uri
 -- set log location
 -- local log_file = "/var/log/nginx/access.log"
 
--- get server name
-local server_name = host
-
+-- set certbot params
+local SERVER_NAME = host
+local CERTBOT_EMAIL = "demo@example.com"
 
 -- get request body
 ngx.req.read_body()
@@ -28,7 +31,11 @@ if args then
     for k, v in pairs(args) do
         if k == "server_name" then
             -- set server name
-            server_name = v
+            SERVER_NAME = v
+        end
+        if k == "certbot_email" then
+            -- set certbot email
+            CERTBOT_EMAIL = v
         end
     end
 else
@@ -59,7 +66,7 @@ if file==nil then
     ngx.exit(ngx.HTTP_INTERNAL_SERVER_ERROR)
 else
     file:write("server {")
-    file:write("server_name ", server_name, ";")
+    file:write("server_name ", SERVER_NAME, ";")
     file:write("}")
     file:close()
 end
@@ -70,3 +77,10 @@ ngx.say("OK")
 
 -- reload nginx
 os.execute("/usr/local/openresty/nginx/sbin/nginx -s reload")
+
+-- execute certbot to generate new cert
+local cmd = "/usr/local/bin/certbot certonly --agree-tos --keep -n --text --preferred-challenges http-01 --authenticator webroot  --rsa-key-size 4096 --elliptic-curve secp384r1 --key-type rsa --webroot-path /usr/local/openresty/nginx/html --debug --email " .. CERTBOT_EMAIL .. " --server " .. CERTBOT_PRODUCTION_URL .. " -d " .. SERVER_NAME
+
+local handle = io.popen(cmd, "r")
+local result = handle:read("*a")
+handle:close()

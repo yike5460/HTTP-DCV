@@ -78,16 +78,12 @@ VOLUME /etc/letsencrypt
 EXPOSE 443
 EXPOSE 80
 
-# Change the container's start command to launch our Nginx and certbot
-# management script.
-# CMD [ "/scripts/start_nginx_certbot.sh" ]
-
 # Modify default nginx.conf in openresty /usr/local/openresty/nginx/conf, overide default user (user) and group (group) to nginx
 RUN sed -i 's/#user  nobody;/user  root;/' /usr/local/openresty/nginx/conf/nginx.conf
 
 # Run nginx
 CMD ["nginx", "-g", "daemon off;"]
 
-
-
-
+# Change the container's start command to launch our Nginx and certbot
+# management script.
+# CMD [ "/scripts/start_nginx_certbot.sh" ]
