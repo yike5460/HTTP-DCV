@@ -73,14 +73,42 @@ end
 
 -- return 200
 ngx.status = ngx.HTTP_OK
-ngx.say("OK")
+ngx.say("Nginx server name added successfully")
 
 -- reload nginx
 os.execute("/usr/local/openresty/nginx/sbin/nginx -s reload")
 
--- execute certbot to generate new cert
-local cmd = "/usr/local/bin/certbot certonly --agree-tos --keep -n --text --preferred-challenges http-01 --authenticator webroot  --rsa-key-size 4096 --elliptic-curve secp384r1 --key-type rsa --webroot-path /usr/local/openresty/nginx/html --debug --email " .. CERTBOT_EMAIL .. " --server " .. CERTBOT_PRODUCTION_URL .. " -d " .. SERVER_NAME
+-- execute certbot to generate new cert, make options configurable TBD
+local cmd = "/usr/local/bin/certbot certonly --agree-tos --keep -n --text --preferred-challenges http-01 --authenticator webroot --rsa-key-size 4096 --elliptic-curve secp384r1 --key-type rsa --webroot-path /usr/local/openresty/nginx/html --debug --email " .. CERTBOT_EMAIL .. " --server " .. CERTBOT_PRODUCTION_URL .. " -d " .. SERVER_NAME
 
 local handle = io.popen(cmd, "r")
 local result = handle:read("*a")
 handle:close()
+
+-- import certificates into AWS ACM, default region us-east-1, make it configurable TBD
+local cmd = "/usr/local/bin/aws acm import-certificate --certificate fileb:///etc/letsencrypt/live/" .. SERVER_NAME .. "/cert.pem " .. "--private-key fileb:///etc/letsencrypt/live/" .. SERVER_NAME .. "/privkey.pem " .. "--certificate-chain fileb:///etc/letsencrypt/live/" .. SERVER_NAME .. "/chain.pem " .. "--region us-east-1"
+local handle = io.popen(cmd, "r")
+local result = handle:read("*a")
+handle:close()
+
+-- -- upload certifcate (cert.pem/chain.pem/fullchain.pem/privkey.pem) to s3 bucket
+-- local cmd = "aws s3 cp /etc/letsencrypt/live/" .. SERVER_NAME .. "/cert.pem s3://certs/" .. SERVER_NAME .. "/cert.pem"
+-- local handle = io.popen(cmd, "r")
+-- local result = handle:read("*a")
+-- handle:close()
+
+-- local cmd = "aws s3 cp /etc/letsencrypt/live/" .. SERVER_NAME .. "/chain.pem s3://certs/" .. SERVER_NAME .. "/chain.pem"
+-- local handle = io.popen(cmd, "r")
+-- local result = handle:read("*a")
+-- handle:close()
+
+-- local cmd = "aws s3 cp /etc/letsencrypt/live/" .. SERVER_NAME .. "/fullchain.pem s3://certs/" .. SERVER_NAME .. "/fullchain.pem"
+-- local handle = io.popen(cmd, "r")
+-- local result = handle:read("*a")
+-- handle:close()
+
+-- local cmd = "aws s3 cp /etc/letsencrypt/live/" .. SERVER_NAME .. "/privkey.pem s3://certs/" .. SERVER_NAME .. "/privkey.pem"
+-- local handle = io.popen(cmd, "r")
+-- local result = handle:read("*a")
+-- handle:close()
+

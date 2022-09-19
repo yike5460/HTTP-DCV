@@ -1,4 +1,4 @@
-import { App, Stack, StackProps, aws_ec2, aws_ecs, aws_ecs_patterns} from 'aws-cdk-lib';
+import { App, Stack, StackProps, aws_ec2, aws_ecs, aws_ecs_patterns, aws_iam} from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 // import { AwsSolutionsChecks } from 'cdk-nag';
 
@@ -18,6 +18,23 @@ export class MyStack extends Stack {
       vpc: vpc,
     });
 
+    // add acm permission (import certs) to ecs task role
+    const taskRole = new aws_iam.Role(this, 'TaskRole', {
+      assumedBy: new aws_iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
+    });
+    taskRole.addToPolicy(new aws_iam.PolicyStatement({
+      resources: ['*'],
+      // acm all write permission
+      actions: 
+        ["acm:DeleteCertificate",
+        "acm:ResendValidationEmail",
+        "acm:RequestCertificate",
+        "acm:PutAccountConfiguration",
+        "acm:UpdateCertificateOptions",
+        "acm:ImportCertificate",
+        "acm:RenewCertificate"],
+    }));
+
     const loadBalancedFargateService = new aws_ecs_patterns.ApplicationLoadBalancedFargateService(this, 'Service', {
       cluster,
       memoryLimitMiB: 1024,
@@ -25,6 +42,7 @@ export class MyStack extends Stack {
       cpu: 512,
       taskImageOptions: {
         image: aws_ecs.ContainerImage.fromAsset('src/containers'),
+        taskRole: taskRole,
       },
     });
 

@@ -31,12 +31,18 @@ RUN set -ex && \
         procps \
         python3 \
         python3-dev \
+        # For sake of normal AWS CLI output
+        less \
     && \
-# Install certbot and supported plugins
+    # Install AWS CLI
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+    ./aws/install && \
+    # Install certbot and supported plugins
     curl -L 'https://bootstrap.pypa.io/get-pip.py' | python3 && \
     pip3 install -U cffi certbot \
     $(echo $CERTBOT_DNS_AUTHENTICATORS | sed 's/\(^\| \)/\1certbot-dns-/g') && \
-# Remove everything that is no longer necessary.
+    # Remove everything that is no longer necessary.
     # yum remove -y \
     #     build-essential \
     #     cargo \
@@ -51,12 +57,12 @@ RUN set -ex && \
     # rm -rf /root/.cache && \
     # rm -rf /root/.cargo && \
 
-# Create new user and set correct permissions.
+    # Create new user and set correct permissions.
     useradd -r -s /sbin/nologin nginx && \
     mkdir -p /var/www/letsencrypt && \
     mkdir -p /etc/nginx/user_conf.d && \
     chown -R nginx:nginx /var/www /etc/nginx/user_conf.d && \
-# Make sure there are no surprise config files inside the config folder.
+    # Make sure there are no surprise config files inside the config folder.
     rm -f /etc/nginx/conf.d/*
 
 # Copy in our "default" Nginx server configurations, which make sure that the
