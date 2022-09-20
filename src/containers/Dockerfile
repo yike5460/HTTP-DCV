@@ -33,6 +33,8 @@ RUN set -ex && \
         python3-dev \
         # For sake of normal AWS CLI output
         less \
+        # ECS credential issue
+        jq \
     && \
     # Install AWS CLI
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
@@ -74,6 +76,10 @@ COPY nginx_conf.d/ /etc/nginx/conf.d/
 COPY scripts/ /scripts
 RUN chmod +x -R /scripts
 
+# export AWS_CONTAINER_CREDENTIALS_RELATIVE_URI for wrapper script, start script, or supervisord
+# refer to https://aws.amazon.com/premiumsupport/knowledge-center/ecs-iam-task-roles-config-errors/
+RUN echo 'export $(strings /proc/1/environ | grep AWS_CONTAINER_CREDENTIALS_RELATIVE_URI)' >> /root/.profile
+
 # Create health check file for openresty
 RUN mkdir -p /usr/local/openresty/nginx/html/health && \
     touch /usr/local/openresty/nginx/html/health/200.html
@@ -88,8 +94,8 @@ EXPOSE 80
 RUN sed -i 's/#user  nobody;/user  root;/' /usr/local/openresty/nginx/conf/nginx.conf
 
 # Run nginx
-CMD ["nginx", "-g", "daemon off;"]
+# CMD ["nginx", "-g", "daemon off;"]
 
 # Change the container's start command to launch our Nginx and certbot
 # management script.
-# CMD [ "/scripts/start_nginx_certbot.sh" ]
+CMD [ "/scripts/start_nginx_certbot.sh" ]

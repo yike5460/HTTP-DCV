@@ -86,6 +86,7 @@ local result = handle:read("*a")
 handle:close()
 
 -- import certificates into AWS ACM, default region us-east-1, make it configurable TBD
+-- error happend when execute aws cli, need to fix, use shell script instead TBD
 local cmd = "/usr/local/bin/aws acm import-certificate --certificate fileb:///etc/letsencrypt/live/" .. SERVER_NAME .. "/cert.pem " .. "--private-key fileb:///etc/letsencrypt/live/" .. SERVER_NAME .. "/privkey.pem " .. "--certificate-chain fileb:///etc/letsencrypt/live/" .. SERVER_NAME .. "/chain.pem " .. "--region us-east-1"
 local handle = io.popen(cmd, "r")
 local result = handle:read("*a")
