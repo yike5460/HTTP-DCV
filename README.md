@@ -21,7 +21,7 @@ docker run -it -p 80:80 -p 8080:8080 -p 443:443 public.ecr.aws/p9r6s5p7/certbot-
 
 ## Test
 
-Make sure your custom domain are pointed to (CNAME) the ALB DNS name, for example, if your domain is `cert.example.com` and want to issue certificates for such domain, you will first add <Application Load Balancer URL created in deployment>/certbot to your DNS CNAME record, then you can use the following command to test the service.
+Make sure your custom domain are pointed to (CNAME) the ALB DNS name, for example, if your domain is `cert.example.com` and want to issue certificates for such domain, you will first add <Application Load Balancer URL created in deployment> to your DNS CNAME record, then you can use the following command to test the service.
 
 ```bash
 # trigger certbot to issue certificate
