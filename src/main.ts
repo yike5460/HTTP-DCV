@@ -42,9 +42,17 @@ export class MyStack extends Stack {
       cpu: 512,
       taskImageOptions: {
         image: aws_ecs.ContainerImage.fromAsset('src/containers'),
+        // image: aws_ecs.ContainerImage.fromRegistry('public.ecr.aws/p9r6s5p7/certbot-server:latest'),
         taskRole: taskRole,
       },
     });
+
+    loadBalancedFargateService.targetGroup.healthCheck = {
+      path: '/health',
+      // interval: cdk.Duration.seconds(60),
+      // timeout: cdk.Duration.seconds(5),
+      // healthyHttpCodes: '200',
+    };
 
     const scalableTarget = loadBalancedFargateService.service.autoScaleTaskCount({
       minCapacity: 1,

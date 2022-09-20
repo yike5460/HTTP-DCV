@@ -41,8 +41,8 @@ storeAWSTemporarySecurityCredentials() {
 
 storeAWSTemporarySecurityCredentials
 
-# run nginx in the background
-nginx -g "daemon off;" &
+# run nginx in non daemon mode
+nginx -g "daemon off;"
 NGINX_PID=$!
 
 # Make bash listen to the SIGTERM, SIGINT and SIGQUIT kill signals, and make
