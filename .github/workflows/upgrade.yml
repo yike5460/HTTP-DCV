@@ -47,7 +47,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.githubToken }}
       - name: Download patch
         uses: actions/download-artifact@v3
         with:
@@ -63,7 +63,7 @@ jobs:
         id: create-pr
         uses: peter-evans/create-pull-request@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.githubToken }}
           commit-message: |-
             chore(deps): upgrade dependencies
 
