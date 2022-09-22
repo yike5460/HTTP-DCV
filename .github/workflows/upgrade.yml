@@ -47,7 +47,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          token: 'workflow-pat'
+          token: 'WORKFLOW_TOKEN'
       - name: Download patch
         uses: actions/download-artifact@v3
         with:
@@ -64,7 +64,7 @@ jobs:
         id: create-pr
         uses: peter-evans/create-pull-request@v3
         with:
-          token: 'workflow-pat'
+          token: 'WORKFLOW_TOKEN'
           commit-message: |-
             chore(deps): upgrade dependencies
 
