@@ -47,7 +47,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          token: 'WORKFLOW_TOKEN'
+          token: ${{ github.token }}
       - name: Download patch
         uses: actions/download-artifact@v3
         with:
@@ -64,7 +64,7 @@ jobs:
         id: create-pr
         uses: peter-evans/create-pull-request@v3
         with:
-          token: 'WORKFLOW_TOKEN'
+          token: ${{ github.token }}
           commit-message: |-
             chore(deps): upgrade dependencies
 
