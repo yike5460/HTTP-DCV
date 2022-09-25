@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Get credentials from AWS for the initial run
+. "$(cd "$(dirname "$0")"; pwd)/utils.sh"
+
 # Helper function to gracefully shut down our child processes when we exit.
 clean_exit() {
     for PID in "${NGINX_PID}" "${CERTBOT_LOOP_PID}"; do
@@ -10,47 +13,52 @@ clean_exit() {
     done
 }
 
-# Such script is alternatively available compared to official solution: https://aws.amazon.com/premiumsupport/knowledge-center/ecs-iam-task-roles-config-errors/
-storeAWSTemporarySecurityCredentials() {
-
-  # Skip AWS credentials processing if env URI is not present
-  [ -z "$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI" ] && return
-
-  # Query the unique security credentials generated for the task.
-  # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html
-  USER_AWS_SETTINGS_FOLDER=~/.aws
-  [ ! -d "$USER_AWS_SETTINGS_FOLDER" ] && mkdir -p $USER_AWS_SETTINGS_FOLDER
-
-  AWS_CREDENTIALS=$(curl 169.254.170.2${AWS_CONTAINER_CREDENTIALS_RELATIVE_URI})
-
-  AWS_ACCESS_KEY_ID=$(echo $AWS_CREDENTIALS | jq '.AccessKeyId' --raw-output)
-  AWS_SECRET_ACCESS_KEY=$(echo $AWS_CREDENTIALS | jq '.SecretAccessKey' --raw-output)
-  AWS_SESSION_TOKEN=$(echo $AWS_CREDENTIALS | jq '.Token' --raw-output)
-
-  USER_AWS_CREDENTIALS_FILE=${USER_AWS_SETTINGS_FOLDER}/credentials
-  touch $USER_AWS_CREDENTIALS_FILE
-
-  # Set the temporary credentials to the default AWS profile.
-  # Note the corresponding security token must be included to sign your S3 request with the temporary security credentials.
-  # https://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html#UsingTemporarySecurityCredentials
-  echo '[default]' > $USER_AWS_CREDENTIALS_FILE
-  echo "aws_access_key_id=${AWS_ACCESS_KEY_ID}" >> $USER_AWS_CREDENTIALS_FILE
-  echo "aws_secret_access_key=${AWS_SECRET_ACCESS_KEY}" >> $USER_AWS_CREDENTIALS_FILE
-  echo "aws_session_token=${AWS_SESSION_TOKEN}" >> $USER_AWS_CREDENTIALS_FILE
-}
-
-storeAWSTemporarySecurityCredentials
-
-# run nginx in non daemon mode
+# Run nginx in non daemon mode
 nginx -g "daemon off;"
 NGINX_PID=$!
+RENEWAL_INTERVAL='10'
 
-# Make bash listen to the SIGTERM, SIGINT and SIGQUIT kill signals, and make
-# them trigger a normal "exit" command in this script. Then we tell bash to
-# execute the "clean_exit" function, seen above, in the case an "exit" command
-# is triggered. This is done to give the child processes a chance to exit
-# gracefully.
-# trap 'exit' TERM INT QUIT
-# trap 'clean_exit' EXIT
+(
+set -e
+while [ true ]; do
+    storeAWSTemporarySecurityCredentials
+    # Calling Lua script to renew certificates
+    # /usr/bin/lua /etc/nginx/conf.d/lua/renew_certificates.lua
 
-# Other function to trigger certbot webroot renewal, TBD
+    # The "if" statement afterwards is to enable us to terminate this sleep
+    # process (via the HUP trap) without tripping the "set -e" setting.
+    info "Autorenewal service will now sleep ${RENEWAL_INTERVAL}"
+    sleep "${RENEWAL_INTERVAL}" || x=$?; if [ -n "${x}" ] && [ "${x}" -ne "143" ]; then exit "${x}"; fi
+done
+) &
+CERTBOT_LOOP_PID=$!
+
+# A helper function to prematurely terminate the sleep process, inside the
+# autorenewal loop process, in order to immediately restart the loop again
+# and thus reload any configuration files.
+reload_configs() {
+    info "Received SIGHUP signal; terminating the autorenewal sleep process"
+    if ! pkill -15 -P ${CERTBOT_LOOP_PID} -fx "sleep ${RENEWAL_INTERVAL}"; then
+        warning "No sleep process found, this most likely means that a renewal process is currently running"
+    fi
+    # On success we return 128 + SIGHUP in order to reduce the complexity of
+    # the final wait loop.
+    return 129
+}
+
+# Create a trap that listens to SIGHUP and runs the reloader function in case
+# such a signal is received.
+trap "reload_configs" HUP
+
+# Nginx and the certbot update-loop process are now our children. As a parent
+# we will wait for both of their PIDs, and if one of them exits we will follow
+# suit and use the same status code as the program which exited first.
+# The loop is necessary since the HUP trap will make any "wait" return
+# immediately when triggered, and to not exit the entire program we will have
+# to wait on the original PIDs again.
+while [ -z "${exit_code}" ] || [ "${exit_code}" = "129" ]; do
+    wait -n ${NGINX_PID} ${CERTBOT_LOOP_PID}
+    exit_code=$?
+done
+exit ${exit_code}
+

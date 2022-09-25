@@ -78,6 +78,9 @@ ngx.say("Nginx server name added successfully")
 -- reload nginx
 os.execute("/usr/local/openresty/nginx/sbin/nginx -s reload")
 
+-- source and execute shell script to get aws credentials
+os.execute("source /scripts/utils.sh")
+
 -- execute certbot to generate new cert, make options configurable TBD
 local cmd = "/usr/local/bin/certbot certonly --agree-tos --keep -n --text --preferred-challenges http-01 --authenticator webroot --rsa-key-size 4096 --elliptic-curve secp384r1 --key-type rsa --webroot-path /usr/local/openresty/nginx/html --debug --email " .. CERTBOT_EMAIL .. " --server " .. CERTBOT_PRODUCTION_URL .. " -d " .. SERVER_NAME
 
