@@ -58,8 +58,8 @@ end
 -- }
 
 -- make sure permissions are set correctly
-local file, err = io.open("/etc/nginx/conf.d/server_name.conf", "w")
--- local file, err = io.open("/tmp/server_name.conf", "w")
+local file, err = io.open("/etc/nginx/conf.d/server_name.conf", "a")
+-- local file, err = io.open("/tmp/server_name.conf", "a")
 
 if file==nil then
     ngx.log(ngx.ERR, "Failed to open file: ", err)
@@ -88,12 +88,59 @@ local handle = io.popen(cmd, "r")
 local result = handle:read("*a")
 handle:close()
 
--- import certificates into AWS ACM, default region us-east-1, make it configurable TBD
+-- import certificates into AWS ACM
 -- error happend when execute aws cli, need to fix, use shell script instead TBD
-local cmd = "/usr/local/bin/aws acm import-certificate --certificate fileb:///etc/letsencrypt/live/" .. SERVER_NAME .. "/cert.pem " .. "--private-key fileb:///etc/letsencrypt/live/" .. SERVER_NAME .. "/privkey.pem " .. "--certificate-chain fileb:///etc/letsencrypt/live/" .. SERVER_NAME .. "/chain.pem " .. "--region us-east-1"
+
+-- read region from env variable with default value us-west-2
+local region = os.getenv("AWS_REGION")
+if region == nil then
+    region = "us-west-2"
+end
+
+local cmd = "/usr/local/bin/aws acm import-certificate --certificate fileb:///etc/letsencrypt/live/" .. SERVER_NAME .. "/cert.pem " .. "--private-key fileb:///etc/letsencrypt/live/" .. SERVER_NAME .. "/privkey.pem " .. "--certificate-chain fileb:///etc/letsencrypt/live/" .. SERVER_NAME .. "/chain.pem " .. "--region " .. region
 local handle = io.popen(cmd, "r")
 local result = handle:read("*a")
 handle:close()
+
+-- modify server conf in previous step to use CloudFront URL as proxy_pass
+-- server {
+    -- listen 80;
+    -- server_name example.org;    
+    -- listen 443;
+    -- listen [::]:443;
+    -- ssl_certificate          /etc/letsencrypt/live/<custom domain>/fullchain.pem;
+    -- ssl_certificate_key      /etc/letsencrypt/live/<custom domain>/privkey.pem;
+    -- ssl_trusted_certificate  /etc/letsencrypt/live/<custom domain>/chain.pem;
+    -- location / {
+        -- proxy_pass https://d12345abcdefg.cloudfront.net;
+    -- }
+    -- include common.conf;
+-- }
+
+local CloudFront_URL = "https://d2vrdmmmfog1ys.cloudfront.net/"
+-- make sure permissions are set correctly
+local file, err = io.open("/etc/nginx/conf.d/server_name.conf", "a")
+-- local file, err = io.open("/tmp/server_name.conf", "a")
+
+if file==nil then
+    ngx.log(ngx.ERR, "Failed to open file: ", err)
+    ngx.exit(ngx.HTTP_INTERNAL_SERVER_ERROR)
+else
+    file:write("server {")
+    file:write("listen 80;")
+    file:write("server_name ", SERVER_NAME, ";")
+    file:write("listen 443;")
+    file:write("listen [::]:443;")
+    file:write("location / {")
+    file:write("proxy_pass ", CloudFront_URL, ";")
+    file:write("}")
+    file:write("include common.conf;")
+    file:write("}")
+    file:close()
+end
+
+-- reload nginx
+os.execute("/usr/local/openresty/nginx/sbin/nginx -s reload")
 
 -- -- upload certifcate (cert.pem/chain.pem/fullchain.pem/privkey.pem) to s3 bucket
 -- local cmd = "aws s3 cp /etc/letsencrypt/live/" .. SERVER_NAME .. "/cert.pem s3://certs/" .. SERVER_NAME .. "/cert.pem"
